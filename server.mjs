@@ -8,7 +8,7 @@ import matter from 'gray-matter'
 import { loadExperiences, filterForProfile } from './lib/experiences.mjs'
 import { matchProfile, getProfile, getSkills, getContact, listProfiles } from './lib/profiles.mjs'
 import { verifyRecruiter, scoreLinkedInProfile } from './lib/verify.mjs'
-import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, updateTrust, deleteAll, emailAlreadyProcessed, getActiveSession, listSessions, createSession, switchSession } from './lib/tracking.mjs'
+import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, updateTrust, deleteAll, clearSession, emailAlreadyProcessed, getActiveSession, listSessions, createSession, switchSession } from './lib/tracking.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FOLLOWUPS_DIR = join(__dirname, 'followups')
@@ -305,6 +305,10 @@ app.post('/api/incoming', async (req, res) => {
   try {
     const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body: emailBody, auth, replyTo })
 
+    if (emailAlreadyProcessed(email)) {
+      return res.json({ ok: true, slug: null, profile: profileKey, trust: verification.tier, status: 'skipped', reason: 'already_processed' })
+    }
+
   createSlug({
     slug, email, profile: profileKey, subject, fromName,
     trust: verification.trust, tier: verification.tier,
@@ -392,6 +396,12 @@ app.post('/api/delete', (req, res) => {
   const slugs = req.body.slugs || []
   slugs.forEach(s => deleteSlug(s))
   res.json({ ok: true, deleted: slugs.length })
+})
+
+// Clear entire session
+app.post('/api/session/clear', (req, res) => {
+  clearSession()
+  res.json({ ok: true })
 })
 
 // Deep verify — returns slug info for Chrome MCP scraping
