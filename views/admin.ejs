@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Resume — Pipeline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 960px; margin: 0 auto; padding: 20px; color: #1a1a2e; background: #fafbfc; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 1.2rem; font-weight: 700; }
+    .count { font-size: 0.8rem; color: #888; }
+    .pills { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .pill { padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #555; }
+    .pill.on { background: #111; color: #fff; border-color: #111; }
+    .pill.verified { border-color: #059669; }
+    .pill.suspicious { border-color: #dc2626; }
+    .actions { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; }
+    .btn { padding: 5px 14px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; border: 1px solid #ddd; background: #fff; font-weight: 500; }
+    .btn.primary { background: #111; color: #fff; border-color: #111; }
+    .btn.danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn.warn { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+    .sel-all { font-size: 0.78rem; color: #2563eb; cursor: pointer; user-select: none; text-decoration: underline; text-underline-offset: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
+    th { text-align: left; padding: 8px 12px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 0.68rem; text-transform: uppercase; color: #888; letter-spacing: 0.3px; }
+    td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+    tr:hover { background: #fafbfc; cursor: pointer; }
+    tr.hidden { display: none; }
+    tr.pending-row { border-left: 3px solid #f59e0b; }
+    tr.sent-row { opacity: 0.6; }
+    tr.expanded-row td { padding: 2px 12px 10px; font-size: 0.78rem; color: #555; background: #fafbfc; border-bottom: 1px solid #e5e7eb; }
+    tr.expanded-row.hidden { display: none; }
+    .detail { line-height: 1.5; max-width: 700px; }
+    .flag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.68rem; margin: 2px 3px 2px 0; }
+    .flag-ok { background: #d1fae5; color: #059669; }
+    .flag-bad { background: #fee2e2; color: #dc2626; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
+    .tag-cto { background: #ede9fe; color: #7c3aed; }
+    .tag-architect { background: #dbeafe; color: #2563eb; }
+    .tag-fullstack { background: #d1fae5; color: #059669; }
+    .tag-mobile { background: #fef3c7; color: #d97706; }
+    .tag-infra { background: #fce7f3; color: #db2777; }
+    .tag-ceo { background: #e0e7ff; color: #4338ca; }
+    .tag-solutions { background: #cffafe; color: #0891b2; }
+    .tag-product { background: #f3e8ff; color: #9333ea; }
+    .tag-default { background: #f3f4f6; color: #6b7280; }
+    .t-verified { color: #059669; font-weight: 600; }
+    .t-unverified { color: #d97706; }
+    .t-suspicious { color: #dc2626; }
+    .st-pending { color: #d97706; font-weight: 600; }
+    a { color: #2563eb; text-decoration: none; font-size: 0.78rem; }
+    a:hover { text-decoration: underline; }
+    .empty { text-align: center; padding: 40px; color: #999; font-size: 0.85rem; }
+    .chk { width: 20px; }
+    .footer { margin-top: 16px; font-size: 0.75rem; color: #aaa; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Recruiter Pipeline</h1>
+    <div class="count"><%= all.length %> total · <strong><%= pending.length %> pending</strong></div>
+  </div>
+
+  <div class="pills">
+    <button class="pill on" id="preset-local" onclick="preset('local')">My Picks</button>
+    <button class="pill" id="preset-all" onclick="preset('all')">All</button>
+    <span style="margin-left:8px;font-size:0.75rem;color:#888;line-height:2">Trust:</span>
+    <button class="pill on" onclick="filter('trust','all',this)">All</button>
+    <button class="pill verified" onclick="filter('trust','verified',this)">Verified</button>
+    <button class="pill" onclick="filter('trust','unverified',this)">Unverified</button>
+    <button class="pill suspicious" onclick="filter('trust','suspicious',this)">Suspicious</button>
+    <span style="margin-left:12px;font-size:0.75rem;color:#888;line-height:2">Status:</span>
+    <button class="pill" onclick="filter('status','pending',this)">Pending</button>
+    <button class="pill" onclick="filter('status','sent',this)">Sent</button>
+    <button class="pill" onclick="filter('status','skipped',this)">Skipped</button>
+  </div>
+
+  <% if (pending.length > 0) { %>
+  <div class="actions">
+    <span class="sel-all" onclick="toggleAll()">Select all visible</span>
+    <button class="btn primary" onclick="batch('approve')">Approve & Send</button>
+    <button class="btn" onclick="batch('approve', 'nfodor@mac.com')" style="background:#2563eb;color:#fff;border-color:#2563eb">Send to Self</button>
+    <button class="btn warn" onclick="batch('skip')">Skip</button>
+    <button class="btn danger" onclick="batch('delete')">Delete</button>
+    <input type="email" id="custom-email" placeholder="or send to…" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;width:160px" onkeydown="if(event.key==='Enter')batch('approve',this.value)">
+  </div>
+  <% } %>
+
+  <% if (all.length === 0) { %>
+    <div class="empty">Waiting for recruiter emails…</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th class="chk"><input type="checkbox" onchange="toggleAll(this.checked)"></th>
+          <th>Date</th>
+          <th>From</th>
+          <th>Subject</th>
+          <th>Profile</th>
+          <th>Trust</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% all.forEach(row => { %>
+          <tr class="<%= row.status === 'pending' ? 'pending-row' : 'sent-row' %>"
+              data-trust="<%= row.trust_tier %>" data-status="<%= row.status %>"
+              onclick="toggleDetail('<%= row.slug %>')">
+            <td><input type="checkbox" class="row-check" value="<%= row.slug %>" <%= row.status !== 'pending' ? 'disabled' : '' %> onclick="event.stopPropagation()"></td>
+            <td style="font-size:0.75rem;color:#888;white-space:nowrap"><%= (row.created_at || '').split(' ')[0] %></td>
+            <td><%= row.from_name || row.email %></td>
+            <td><%= (row.subject || '').substring(0, 45) %></td>
+            <td><span class="tag tag-<%= row.profile %>"><%= row.profile %></span></td>
+            <td class="t-<%= row.trust_tier %>"><%= row.trust_tier %></td>
+            <td>
+              <a href="<%= BASE_URL %>/<%= row.slug %>" target="_blank" onclick="event.stopPropagation()">view</a>
+              &nbsp;<a href="<%= BASE_URL %>/download/<%= row.slug %>" onclick="event.stopPropagation()">docx</a>
+            </td>
+          </tr>
+          <% if (row.body_preview) { %>
+          <tr class="expanded-row hidden" id="detail-<%= row.slug %>">
+            <td colspan="8">
+              <div class="detail">
+                <strong><%= row.email %></strong><br>
+                <%= row.body_preview || '(no details)' %>
+                <% if (row.flags) { try { const f = JSON.parse(row.flags); if (f.length) { %>
+                  <div style="margin-top:6px">
+                    <% f.forEach(flag => { %>
+                      <span class="flag <%= flag.includes('fail') || flag.includes('mismatch') || flag.includes('impersonat') ? 'flag-bad' : 'flag-ok' %>"><%= flag.replace(/_/g, ' ') %></span>
+                    <% }) %>
+                  </div>
+                <% }} catch(e) {} } %>
+                <div class="followup" id="followup-<%= row.slug %>" style="margin-top:8px;font-size:0.75rem;color:#888"></div>
+              </div>
+            </td>
+          </tr>
+          <% } %>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+
+  <div class="footer">
+    <%= pending.length %> pending · <%= sent.length %> sent · <%= skipped.length %> skipped
+  </div>
+
+  <script>
+    let activeTrust = 'all', activeStatus = 'all'
+
+    function preset(name) {
+      const trustPills = document.querySelectorAll('.pills button:nth-of-type(n+3)')
+      const statusPills = document.querySelectorAll('.pills button:nth-of-type(-n+2)') // doesn't work well, use explicit
+
+      if (name === 'local') {
+        activeTrust = 'verified'; activeStatus = 'pending'
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'))
+        document.getElementById('preset-local').classList.add('on')
+        // Highlight trust:verified and status:pending pills (find by text)
+        document.querySelectorAll('.pill').forEach(p => {
+          if (p.textContent.trim() === 'Verified' || p.textContent.trim() === 'Pending') p.classList.add('on')
+        })
+      } else {
+        activeTrust = 'all'; activeStatus = 'all'
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'))
+        document.getElementById('preset-all').classList.add('on')
+        document.querySelectorAll('.pill').forEach(p => {
+          if (p.textContent.trim() === 'All') p.classList.add('on')
+        })
+      }
+      localStorage.setItem('resume-preset', name)
+      applyFilters()
+    }
+
+    function filter(type, val, btn) {
+      if (type === 'trust') activeTrust = val
+      else activeStatus = val
+      document.getElementById('preset-local').classList.remove('on')
+      document.getElementById('preset-all').classList.remove('on')
+      btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('on'))
+      btn.classList.add('on')
+      localStorage.removeItem('resume-preset')
+      applyFilters()
+    }
+
+    function applyFilters() {
+      document.querySelectorAll('tbody tr').forEach(tr => {
+        const trust = tr.dataset.trust
+        const status = tr.dataset.status
+        const trustOk = activeTrust === 'all' || trust === activeTrust
+        const statusOk = activeStatus === 'all' || status === activeStatus
+        tr.classList.toggle('hidden', !(trustOk && statusOk))
+      })
+    }
+
+    // Restore saved preference
+    (function() {
+      const saved = localStorage.getItem('resume-preset')
+      if (saved === 'local') preset('local')
+    })()
+
+    function toggleDetail(slug) {
+      const row = document.getElementById('detail-' + slug)
+      if (row) row.classList.toggle('hidden')
+    }
+    function toggleAll(state) {
+      if (typeof state === 'boolean') {
+        document.querySelectorAll('.row-check:not(:disabled):not(.hidden)').forEach(c => c.checked = state)
+      } else {
+        const checks = [...document.querySelectorAll('.row-check:not(:disabled)')].filter(c => !c.closest('tr.hidden'))
+        const allChecked = checks.every(c => c.checked)
+        checks.forEach(c => c.checked = !allChecked)
+      }
+    }
+
+    async function batch(action, email) {
+      const slugs = [...document.querySelectorAll('.row-check:checked')].map(c => c.value).filter(Boolean)
+      if (!slugs.length) return alert('Nothing selected')
+      const sendTo = email || document.getElementById('custom-email').value.trim() || null
+      if (action === 'delete' && !confirm('Delete ' + slugs.length + ' items?')) return
+      const body = { slugs }
+      if (sendTo) body.test_to = sendTo
+      const resp = await fetch('/api/' + action, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      const data = await resp.json()
+      location.reload()
+    }
+
+    // Hide sent/skipped rows when clicking Pending pill by default? no — use pills.
+  </script>
+</body>
+</html>

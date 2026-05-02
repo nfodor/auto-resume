@@ -1,0 +1,20 @@
+{
+  "name": "auto-resume",
+  "version": "1.0.0",
+  "description": "AI-customized resume engine — generates unique, role-tailored resumes per recruiter with visit tracking",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "docx": "^9.6.1",
+    "ejs": "^3.1.10",
+    "express": "^4.21.0",
+    "gray-matter": "^4.0.3",
+    "nanoid": "^5.0.0"
+  },
+  "license": "MIT"
+}

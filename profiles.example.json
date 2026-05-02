@@ -1,0 +1,86 @@
+{
+  "profiles": {
+    "ceo": {
+      "title": "CEO / Business Leader",
+      "summary": "Serial founder with 30+ years of category creation — from the first internet software company (1992) to bootstrapped PaaS (2024). Built and scaled products serving millions without external funding.",
+      "tags": ["ceo", "cofounder", "founder", "product"],
+      "keywords": ["ceo", "chief executive", "coo", "president", "vp engineering", "head of", "director of engineering", "managing director", "general manager", "business", "strategy", "executive"]
+    },
+    "cto": {
+      "title": "CTO / Technical Founder",
+      "summary": "Product-minded CTO with a 30-year track record of 0-to-1 innovation. Built the first global mobile internet, scaled social audio infrastructure, and architected a zero-trust PaaS from scratch.",
+      "tags": ["cto", "founder", "architect", "product"],
+      "keywords": ["cto", "chief technology", "vp engineering", "technical founder", "head of engineering", "technology", "technical lead", "tech lead", "engineering manager", "founding engineer"]
+    },
+    "architect": {
+      "title": "Principal Architect",
+      "summary": "Principal Architect who doesn't just design systems — builds them. From the first global mobile internet to a 150-endpoint distributed mesh.",
+      "tags": ["architect", "cto", "sre", "infra"],
+      "keywords": ["architect", "principal", "staff engineer", "solution architect", "system design", "platform", "infrastructure", "cloud architect", "distributed", "scale", "systems"]
+    },
+    "fullstack": {
+      "title": "Full Stack Engineer",
+      "summary": "Full Stack Engineer who builds from protocol to UX. Node.js/TypeScript, React/Next.js, WASM, WireGuard, DNS, SMTP.",
+      "tags": ["dev", "fullstack", "infra", "architect"],
+      "keywords": ["full stack", "fullstack", "node.js", "nodejs", "react", "typescript", "javascript", "frontend", "backend", "next.js", "express", "web", "api"]
+    },
+    "mobile": {
+      "title": "Mobile Engineer",
+      "summary": "Mobile engineer who built the first iOS picture-sharing app and wrote SDK integrations for social platforms. Native iOS, React Native, Swift, Kotlin.",
+      "tags": ["mobile", "dev", "solutions", "product"],
+      "keywords": ["ios", "swift", "kotlin", "android", "react native", "mobile", "objective-c", "app", "iphone", "ipad"]
+    },
+    "infra": {
+      "title": "Infrastructure / SRE Engineer",
+      "summary": "Infrastructure engineer who writes protocols. Built custom SMTP server, DNS server, WireGuard mesh, ACME automation, and 150+ REST endpoints on bare-metal LXC.",
+      "tags": ["infra", "sre", "architect", "dev"],
+      "keywords": ["infrastructure", "infra", "sre", "devops", "platform", "cloud", "aws", "wireguard", "dns", "docker", "kubernetes", "lxc", "proxmox", "networking", "security"]
+    },
+    "solutions": {
+      "title": "Solutions / Forward Engineer",
+      "summary": "Forward Engineer bridging product, architecture, and AI-assisted development. Writes the integration, closes the deal, and handles hyper-growth scaling.",
+      "tags": ["solutions", "dev", "architect", "product"],
+      "keywords": ["solutions", "sales engineer", "forward", "customer", "integration", "demo", "presales", "post-sales", "technical account", "tam", "consulting", "professional services"]
+    },
+    "product": {
+      "title": "Product Leader",
+      "summary": "Product leader who codes. Launched the first global mobile internet UX, the first iOS picture-sharing app, and a zero-trust PaaS — all built hands-on from concept to scale.",
+      "tags": ["product", "founder", "cto", "ceo"],
+      "keywords": ["product", "pm", "product manager", "product management", "ux", "design", "strategy", "roadmap", "go-to-market", "gtm"]
+    },
+    "default": {
+      "title": "Product-Minded Principal Engineer",
+      "summary": "Founding Engineer & Principal Architect with a 30-year track record of 0-to-1 innovation and hyper-scale delivery. Combines product vision with deep engineering — from low-level protocols to end-user UX.",
+      "tags": ["cto", "founder", "architect", "dev"],
+      "keywords": []
+    }
+  },
+  "skills": {
+    "infra": ["WireGuard", "DNS", "ACME/Let's Encrypt", "LXC/Proxmox", "Docker", "SMTP Server", "Reverse Proxy"],
+    "dev": ["Node.js (v20+)", "Express.js", "WebAssembly (WASM)", "Python", "C/C++", "React/Next.js"],
+    "fullstack": ["Node.js", "Express.js", "React/Next.js", "TypeScript", "WebAssembly", "REST APIs"],
+    "mobile": ["iOS (Swift/Obj-C)", "React Native", "Kotlin", "Mobile SDK Integration"],
+    "infra_db": ["MongoDB", "SQLite (better-sqlite3)", "PGLite (Postgres in WASM)", "Redis"],
+    "security": ["JWT/JWE (jose)", "OAuth2", "OpenSSL/PKI", "SSL Termination"],
+    "ai": ["MCP (Model Context Protocol SDK)", "OpenAI API", "Sentry", "New Relic", "Sumo Logic"],
+    "protocols": ["REST (150+ endpoints)", "WebSocket", "DNS (UDP/TCP)", "SMTP", "POP3", "HTTPS/TLS"]
+  },
+  "skill_map": {
+    "ceo": ["dev", "infra", "ai"],
+    "cto": ["dev", "infra", "infra_db", "security", "protocols"],
+    "architect": ["infra", "dev", "infra_db", "protocols"],
+    "fullstack": ["fullstack", "dev", "infra_db", "protocols"],
+    "mobile": ["mobile", "dev"],
+    "infra": ["infra", "dev", "infra_db", "security", "protocols"],
+    "solutions": ["dev", "fullstack", "infra", "mobile"],
+    "product": ["dev", "infra", "ai"],
+    "default": ["infra", "dev", "infra_db", "security", "ai", "protocols"]
+  },
+  "contact": {
+    "email": "you@example.com",
+    "phone": "+1 (555) 000-0000",
+    "location": "San Francisco, CA",
+    "github": "github.com/yourusername",
+    "linkedin": "linkedin.com/in/yourusername"
+  }
+}

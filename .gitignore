@@ -1,0 +1,13 @@
+.DS_Store
+node_modules/
+data/
+.env
+profiles.json
+urlyup.conf
+deploy-fodor.sh
+followups/
+inbox/
+dryrun/
+resume.html
+resume.md
+dnsServer_fix.patch

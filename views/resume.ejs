@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nicolas Fodor — <%= profileTitle %></title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1a1a2e;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+    h1 { font-size: 1.6rem; letter-spacing: -0.3px; }
+    .subtitle { color: #555; font-size: 0.95rem; margin: 4px 0 8px; }
+    .contact { font-size: 0.85rem; color: #666; margin-bottom: 24px; }
+    .contact a { color: #2563eb; }
+    h2 {
+      font-size: 1.05rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 6px;
+      margin: 28px 0 12px;
+    }
+    .summary { font-size: 0.95rem; color: #374151; margin-bottom: 8px; }
+    .exp { margin-bottom: 18px; }
+    .exp h3 { font-size: 0.95rem; margin-bottom: 1px; }
+    .exp .meta { font-size: 0.8rem; color: #888; font-style: italic; margin-bottom: 6px; }
+    .exp ul { padding-left: 18px; }
+    .exp li { font-size: 0.9rem; margin-bottom: 4px; color: #374151; }
+    .skills { display: flex; flex-wrap: wrap; gap: 10px; }
+    .skill-group { flex: 0 0 auto; }
+    .skill-group h4 { font-size: 0.78rem; text-transform: uppercase; color: #888; margin-bottom: 3px; }
+    .skill-group p { font-size: 0.82rem; color: #4b5563; }
+    .note {
+      margin-top: 32px;
+      padding: 14px;
+      background: #f8fafc;
+      border-left: 3px solid #2563eb;
+      font-size: 0.85rem;
+      color: #555;
+      border-radius: 0 6px 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nicolas Philippe Fodor</h1>
+  <div class="subtitle"><%= profileTitle %></div>
+  <div class="contact">
+    <%= contact.email %> | <%= contact.phone %> | <%= contact.location %><br>
+    <a href="https://<%= contact.github %>"><%= contact.github %></a> | <a href="https://<%= contact.linkedin %>"><%= contact.linkedin %></a>
+  </div>
+
+  <section>
+    <h2>Summary</h2>
+    <p class="summary"><%= summary %></p>
+  </section>
+
+  <section>
+    <h2>Experience</h2>
+    <% experiences.forEach(exp => { %>
+      <div class="exp">
+        <h3><%= exp.title %> | <%= exp.company %></h3>
+        <div class="meta"><%= exp.dates %></div>
+        <ul>
+          <% exp.bullets.forEach(b => { %>
+            <li><%= b.text %></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% }) %>
+  </section>
+
+  <section>
+    <h2>Technical Skills</h2>
+    <div class="skills">
+      <% skills.forEach(group => { %>
+        <div class="skill-group">
+          <h4><%= group.category %></h4>
+          <p><%= group.items.join(', ') %></p>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <div class="note">
+    <strong>Note to recruiters:</strong> I don't just write code — I solve existential product problems with deep engineering. Whether it's scaling a viral audio app or launching the first global mobile internet, I build for impact.
+  </div>
+  <div style="margin-top:16px; text-align:right">
+    <a href="/download/<%= slug %>" style="color:#2563eb; font-size:0.85rem">Download as Word (.docx)</a>
+  </div>
+</body>
+</html>
