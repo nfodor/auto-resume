@@ -10,6 +10,7 @@
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.2rem; font-weight: 700; }
     .count { font-size: 0.8rem; color: #888; }
+    .session-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; padding: 6px 10px; background: #f0f4ff; border-radius: 6px; font-size: 0.78rem; }
     .pills { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
     .pill { padding: 4px 12px; border-radius: 14px; font-size: 0.75rem; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #555; }
     .pill.on { background: #111; color: #fff; border-color: #111; }
@@ -59,6 +60,20 @@
   <div class="header">
     <h1>Recruiter Pipeline</h1>
     <div class="count"><%= all.length %> total · <strong><%= pending.length %> pending</strong></div>
+  </div>
+
+  <div class="session-bar">
+    <span style="font-size:0.75rem;color:#888">Session:</span>
+    <select id="session-switcher" onchange="switchToSession(this.value)" style="padding:3px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem">
+      <% sessions.forEach(s => { %>
+        <option value="<%= s.id %>" <%= s.id === session.id ? 'selected' : '' %>><%= s.label %> (<%= new Date(s.created).toLocaleDateString() %>)</option>
+      <% }) %>
+    </select>
+    <button class="btn" onclick="newSession()" style="font-size:0.75rem">+ New Session</button>
+    <span style="margin-left:8px">
+      <input type="number" id="import-days" placeholder="days" min="0" max="90" value="0" style="width:44px;padding:3px;border:1px solid #ddd;border-radius:4px;font-size:0.75rem">
+      <span style="font-size:0.7rem;color:#888">import IMAP</span>
+    </span>
   </div>
 
   <div class="pills">
@@ -234,6 +249,20 @@
         window.open(data.linkedinUrl, 'li_'+slug, 'width=800,height=600')
       }
       alert('Deep verify started for ' + slug + '.\nLinkedIn profile opened in new window.\n\nAfter reviewing the profile, the assistant will run Chrome MCP verification.')
+    }
+
+    async function switchToSession(id) {
+      await fetch('/api/session/switch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+      location.reload()
+    }
+
+    async function newSession() {
+      const days = parseInt(document.getElementById('import-days').value) || 0
+      const label = days > 0 ? days + ' days import' : 'empty'
+      if (!confirm('Create new session: ' + label + '?')) return
+      const resp = await fetch('/api/session/new', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({days}) })
+      const data = await resp.json()
+      location.reload()
     }
 
     // Hide sent/skipped rows when clicking Pending pill by default? no — use pills.

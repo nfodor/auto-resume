@@ -8,7 +8,7 @@ import matter from 'gray-matter'
 import { loadExperiences, filterForProfile } from './lib/experiences.mjs'
 import { matchProfile, getProfile, getSkills, getContact, listProfiles } from './lib/profiles.mjs'
 import { verifyRecruiter, scoreLinkedInProfile } from './lib/verify.mjs'
-import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, updateTrust, emailAlreadyProcessed } from './lib/tracking.mjs'
+import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, updateTrust, deleteAll, emailAlreadyProcessed, getActiveSession, listSessions, createSession, switchSession } from './lib/tracking.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FOLLOWUPS_DIR = join(__dirname, 'followups')
@@ -124,13 +124,105 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, profiles: listProfiles() })
 })
 
+// ── Session management ─────────────────────────────────────────
+app.get('/api/session', (req, res) => {
+  res.json({ active: getActiveSession(), sessions: listSessions() })
+})
+
+app.post('/api/session/switch', (req, res) => {
+  const { id } = req.body
+  if (!id) return res.status(400).json({ error: 'id required' })
+  if (!switchSession(id)) return res.status(404).json({ error: 'session not found' })
+  res.json({ ok: true, active: getActiveSession() })
+})
+
+app.post('/api/session/new', async (req, res) => {
+  const days = parseInt(req.body.days) || 0
+  const session = createSession(days)
+
+  const results = { session, inboxFiles: 0, imapEmails: 0, total: 0 }
+
+  // Scan inbox .md files
+  if (existsSync(INBOX_DIR)) {
+    const files = readdirSync(INBOX_DIR).filter(f => f.endsWith('.md') && f !== 'README.md')
+    for (const f of files) {
+      const raw = readFileSync(join(INBOX_DIR, f), 'utf-8')
+      const { data, content } = matter(raw)
+      const from = data.from || f
+      const subject = data.subject || 'Imported'
+      const body = content || ''
+      const auth = data.auth || null
+      const replyTo = data.replyTo || null
+      if (!from) continue
+      try {
+        const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body, auth, replyTo })
+        if (!emailAlreadyProcessed(email)) {
+          createSlug({ slug, email, profile: profileKey, subject, fromName, trust: verification.trust, tier: verification.tier, flags: verification.flags, linkedinUrl: verification.linkedinUrl, status: 'pending', bodyPreview: body.substring(0, 800) })
+          results.total++
+          results.inboxFiles++
+        }
+      } catch (e) {
+        console.error(`Inbox file ${f}:`, e.message)
+      }
+    }
+  }
+
+  // Optional: import from email MCP (IMAP)
+  if (days > 0 && MCP_API) {
+    const since = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
+      const resp = await fetch(MCP_API, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          tool: 'email_read_inbox',
+          arguments: {
+            filter: { since, limit: 200 },
+            options: { include_body: true }
+          }
+        }),
+        signal: AbortSignal.timeout(30000)
+      })
+      const mcpResp = await resp.json().catch(() => ({}))
+      const emails = mcpResp?.result?.emails || mcpResp?.emails || []
+      for (const em of emails) {
+        const from = em.from || em.sender
+        const subject = em.subject || ''
+        const body = em.body || em.text || em.preview || ''
+        const auth = em.auth || null
+        const replyTo = em.replyTo || em['reply-to'] || null
+        if (!from) continue
+        try {
+          const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body, auth, replyTo })
+          if (!emailAlreadyProcessed(email)) {
+            createSlug({ slug, email, profile: profileKey, subject, fromName, trust: verification.trust, tier: verification.tier, flags: verification.flags, linkedinUrl: verification.linkedinUrl, status: 'pending', bodyPreview: body.substring(0, 800) })
+            results.total++
+            results.imapEmails++
+          }
+        } catch (e) {
+          console.error(`IMAP email ${from}:`, e.message)
+        }
+      }
+    } catch (e) {
+      console.error('IMAP fetch failed:', e.message)
+      results.imapError = e.message
+    }
+  }
+
+  console.log(`Session ${session.id}: ${results.total} imported (${results.inboxFiles} inbox, ${results.imapEmails} imap)`)
+  res.json({ ok: true, ...results })
+})
+
 // Admin — review queue with checkboxes
 app.get('/admin', (req, res) => {
   const all = getAllStats()
   const pending = all.filter(r => r.status === 'pending')
   const sent = all.filter(r => r.status === 'sent')
   const skipped = all.filter(r => r.status === 'skipped')
-  res.render('admin', { all, pending, sent, skipped, BASE_URL })
+  const session = getActiveSession()
+  const sessions = listSessions()
+  res.render('admin', { all, pending, sent, skipped, BASE_URL, session, sessions })
 })
 
 // Webhook — stores as pending, no auto-send
