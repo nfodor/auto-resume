@@ -124,6 +124,28 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, profiles: listProfiles() })
 })
 
+app.get('/api/status', async (req, res) => {
+  const status = { mcp: false, imap: false, mcpError: null }
+  if (MCP_API) {
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
+      const resp = await fetch(MCP_API, {
+        method: 'POST', headers,
+        body: JSON.stringify({ tool: 'email_check_email_config', arguments: {} }),
+        signal: AbortSignal.timeout(5000)
+      })
+      const data = await resp.json().catch(() => ({}))
+      status.mcp = resp.ok || !!data?.ok
+      status.imap = !!(data?.result?.imap_configured || data?.imap_configured || data?.imap)
+      if (!status.mcp) status.mcpError = data?.error || `HTTP ${resp.status}`
+    } catch (e) {
+      status.mcpError = e.message
+    }
+  }
+  res.json(status)
+})
+
 // ── Session management ─────────────────────────────────────────
 app.get('/api/session', (req, res) => {
   res.json({ active: getActiveSession(), sessions: listSessions() })

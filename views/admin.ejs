@@ -70,9 +70,13 @@
       <% }) %>
     </select>
     <button class="btn" onclick="newSession()" style="font-size:0.75rem">+ New Session</button>
-    <span style="margin-left:8px;font-size:0.75rem;color:#666">Import IMAP, last</span>
-      <input type="number" id="import-days" placeholder="30" min="0" max="999" value="0" style="width:46px;padding:3px;border:1px solid #ddd;border-radius:4px;font-size:0.75rem;text-align:center">
-      <span style="font-size:0.75rem;color:#666">days</span>
+    <span style="font-size:0.75rem;color:#666">| Import IMAP, last</span>
+    <input type="number" id="import-days" placeholder="30" min="0" max="999" value="0" style="width:46px;padding:3px;border:1px solid #ddd;border-radius:4px;font-size:0.75rem;text-align:center">
+    <span style="font-size:0.75rem;color:#666">days</span>
+    <span style="margin-left:auto;font-size:0.7rem">
+      MCP: <span id="mcp-status" style="color:#888">checking…</span>
+      &nbsp;IMAP: <span id="imap-status" style="color:#888">checking…</span>
+    </span>
   </div>
 
   <div class="pills">
@@ -263,6 +267,21 @@
       const data = await resp.json()
       location.reload()
     }
+
+    // Check MCP/IMAP status on load
+    (async function() {
+      try {
+        const resp = await fetch('/api/status')
+        const s = await resp.json()
+        document.getElementById('mcp-status').innerHTML = s.mcp ? '✅' : ('❌ ' + (s.mcpError || 'offline'))
+        document.getElementById('mcp-status').style.color = s.mcp ? '#059669' : '#dc2626'
+        document.getElementById('imap-status').innerHTML = s.imap ? '✅' : '❌'
+        document.getElementById('imap-status').style.color = s.imap ? '#059669' : s.mcp ? '#d97706' : '#dc2626'
+      } catch(e) {
+        document.getElementById('mcp-status').innerHTML = '❌ unreachable'
+        document.getElementById('mcp-status').style.color = '#dc2626'
+      }
+    })()
 
     // Hide sent/skipped rows when clicking Pending pill by default? no — use pills.
   </script>
