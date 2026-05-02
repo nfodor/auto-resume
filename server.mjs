@@ -72,6 +72,27 @@ const BASE_URL = PUBLIC_URL
 const RESUME_NAME = process.env.RESUME_NAME || 'Your Name'
 const RESUME_EMAIL = process.env.RESUME_EMAIL || 'you@example.com'
 const RESUME_PHONE = process.env.RESUME_PHONE || '+1 (555) 000-0000'
+const IMAP_CONFIG_PATH = join(__dirname, 'data', 'imap.json')
+
+function loadImapConfig() {
+  if (!existsSync(IMAP_CONFIG_PATH)) return null
+  try { return JSON.parse(readFileSync(IMAP_CONFIG_PATH, 'utf-8')) } catch { return null }
+}
+
+function saveImapConfig(config) {
+  writeFileSync(IMAP_CONFIG_PATH, JSON.stringify(config, null, 2))
+}
+
+async function callMcp(tool, args = {}, timeout = 10000) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
+  const resp = await fetch(MCP_API, {
+    method: 'POST', headers,
+    body: JSON.stringify({ tool, arguments: args }),
+    signal: AbortSignal.timeout(timeout)
+  })
+  return { status: resp.status, ...(await resp.json().catch(() => ({}))) }
+}
 
 app.use(express.json({ limit: '5mb' }))
 app.use(express.static(new URL('./public', import.meta.url).pathname))
@@ -108,13 +129,7 @@ async function processEmail({ from, subject, body, auth, replyTo }) {
 }
 
 async function sendEmail(email, subject, replyText) {
-  const headers = { 'Content-Type': 'application/json' }
-  if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
-  const resp = await fetch(MCP_API, {
-    method: 'POST', headers,
-    body: JSON.stringify({ tool: 'send_email', arguments: { to: [email], subject, text: replyText } })
-  })
-  return { status: resp.status, ...(await resp.json().catch(() => ({}))) }
+  return callMcp('send_email', { to: [email], subject, text: replyText })
 }
 
 // ═══ Routes ═══════════════════════════════════════════════════════
@@ -128,22 +143,59 @@ app.get('/api/status', async (req, res) => {
   const status = { mcp: false, imap: false, mcpError: null }
   if (MCP_API) {
     try {
-      const headers = { 'Content-Type': 'application/json' }
-      if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
-      const resp = await fetch(MCP_API, {
-        method: 'POST', headers,
-        body: JSON.stringify({ tool: 'email_check_email_config', arguments: {} }),
-        signal: AbortSignal.timeout(5000)
-      })
-      const data = await resp.json().catch(() => ({}))
-      status.mcp = resp.ok || !!data?.ok
+      const data = await callMcp('email_check_email_config', {}, 5000)
+      status.mcp = !!data
       status.imap = !!(data?.result?.imap_configured || data?.imap_configured || data?.imap)
-      if (!status.mcp) status.mcpError = data?.error || `HTTP ${resp.status}`
+      if (!status.mcp) status.mcpError = data?.error || 'unknown'
     } catch (e) {
       status.mcpError = e.message
     }
   }
   res.json(status)
+})
+
+// ── Email settings ──────────────────────────────────────────────
+app.get('/settings', (req, res) => {
+  res.render('settings', { BASE_URL, imapConfig: loadImapConfig() })
+})
+
+app.get('/api/email/check', async (req, res) => {
+  if (!MCP_API) return res.json({ ok: false, error: 'MCP not configured' })
+  try {
+    const data = await callMcp('email_check_email_config', {})
+    res.json(data)
+  } catch (e) {
+    res.json({ ok: false, error: e.message })
+  }
+})
+
+app.post('/api/email/imap', async (req, res) => {
+  const { host, port, email, password } = req.body
+  if (!host || !email || !password) return res.status(400).json({ error: 'host, email, password required' })
+
+  const config = { host, port: port || 993, email, password }
+  saveImapConfig(config)
+
+  // Test the connection
+  try {
+    const data = await callMcp('email_get_mailbox_status', {
+      imap_config: config,
+      mailbox: 'INBOX'
+    }, 10000)
+    res.json({ ok: true, connected: !!data, details: data })
+  } catch (e) {
+    res.json({ ok: true, saved: true, connected: false, error: e.message })
+  }
+})
+
+app.post('/api/email/test', async (req, res) => {
+  if (!MCP_API) return res.json({ ok: false, error: 'MCP not configured' })
+  try {
+    const data = await callMcp('email_test_email_config', {})
+    res.json(data)
+  } catch (e) {
+    res.json({ ok: false, error: e.message })
+  }
 })
 
 // ── Session management ─────────────────────────────────────────
@@ -195,21 +247,11 @@ app.post('/api/session/new', async (req, res) => {
   // Optional: import from email MCP (IMAP)
   if (days > 0 && MCP_API) {
     const since = new Date(Date.now() - days * 86400000).toISOString().split('T')[0]
+    const imapCfg = loadImapConfig()
+    const args = { filter: { since, limit: 200 }, options: { include_body: true } }
+    if (imapCfg) args.imap_config = imapCfg
     try {
-      const headers = { 'Content-Type': 'application/json' }
-      if (MCP_TOKEN) headers['Authorization'] = `Bearer ${MCP_TOKEN}`
-      const resp = await fetch(MCP_API, {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          tool: 'email_read_inbox',
-          arguments: {
-            filter: { since, limit: 200 },
-            options: { include_body: true }
-          }
-        }),
-        signal: AbortSignal.timeout(30000)
-      })
-      const mcpResp = await resp.json().catch(() => ({}))
+      const mcpResp = await callMcp('email_read_inbox', args, 30000)
       const emails = mcpResp?.result?.emails || mcpResp?.emails || []
       for (const em of emails) {
         const from = em.from || em.sender

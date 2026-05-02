@@ -59,7 +59,10 @@
 <body>
   <div class="header">
     <h1>Recruiter Pipeline</h1>
-    <div class="count"><%= all.length %> total · <strong><%= pending.length %> pending</strong></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="count"><%= all.length %> total · <strong><%= pending.length %> pending</strong></div>
+      <a href="/settings" style="font-size:0.75rem;color:#888;text-decoration:none">settings</a>
+    </div>
   </div>
 
   <div class="session-bar">

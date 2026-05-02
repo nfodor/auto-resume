@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Resume — Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a2e; background: #fafbfc; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    h1 { font-size: 1.2rem; font-weight: 700; }
+    .back { font-size: 0.78rem; color: #2563eb; text-decoration: none; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .card h2 { font-size: 0.9rem; margin-bottom: 12px; color: #374151; }
+    label { display: block; font-size: 0.78rem; color: #666; margin-bottom: 4px; }
+    input { width: 100%; padding: 7px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.85rem; margin-bottom: 10px; }
+    input:focus { outline: none; border-color: #2563eb; }
+    .btn { padding: 7px 18px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; border: 1px solid #ddd; background: #fff; font-weight: 500; }
+    .btn.primary { background: #111; color: #fff; border-color: #111; }
+    .btn.danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75rem; margin-top: 6px; }
+    .status-ok { background: #d1fae5; color: #059669; }
+    .status-bad { background: #fee2e2; color: #dc2626; }
+    .status-warn { background: #fef3c7; color: #d97706; }
+    .msg { font-size: 0.78rem; margin-top: 8px; padding: 8px; border-radius: 4px; }
+    .msg-ok { background: #d1fae5; color: #059669; }
+    .msg-err { background: #fee2e2; color: #dc2626; }
+    .field-row { display: flex; gap: 8px; }
+    .field-row > div { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Settings</h1>
+    <a href="/admin" class="back">← Back to Pipeline</a>
+  </div>
+
+  <div class="card">
+    <h2>MCP Connection</h2>
+    <div>
+      Status: <span id="mcp-status" class="status status-warn">checking…</span>
+      <button class="btn" onclick="checkMcp()" style="margin-left:8px;font-size:0.75rem">Recheck</button>
+    </div>
+    <div id="mcp-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>IMAP Configuration</h2>
+    <p style="font-size:0.78rem;color:#888;margin-bottom:12px">Configure IMAP to auto-import recruiter emails. Credentials are stored locally and passed to the email MCP on each call.</p>
+    <form id="imap-form" onsubmit="saveImap(event)">
+      <div class="field-row">
+        <div>
+          <label>IMAP Host</label>
+          <input name="host" placeholder="imap.gmail.com" value="<%= imapConfig ? imapConfig.host : '' %>" required>
+        </div>
+        <div>
+          <label>Port</label>
+          <input name="port" placeholder="993" value="<%= imapConfig ? imapConfig.port || '993' : '993' %>" style="width:80px">
+        </div>
+      </div>
+      <label>Email</label>
+      <input name="email" type="email" placeholder="you@gmail.com" value="<%= imapConfig ? imapConfig.email : '' %>" required>
+      <label>Password (App Password)</label>
+      <input name="password" type="password" placeholder="••••••••" value="<%= imapConfig ? imapConfig.password : '' %>" required>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="submit" class="btn primary">Save & Test</button>
+        <button type="button" class="btn" onclick="testImap()">Test Only</button>
+      </div>
+    </form>
+    <div id="imap-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Email Send Test</h2>
+    <p style="font-size:0.78rem;color:#888;margin-bottom:8px">Send a test email to verify outgoing mail is configured.</p>
+    <button class="btn" onclick="testEmail()">Send Test Email</button>
+    <div id="email-msg"></div>
+  </div>
+
+  <script>
+    async function checkMcp() {
+      document.getElementById('mcp-status').className = 'status status-warn'
+      document.getElementById('mcp-status').textContent = 'checking…'
+      try {
+        const resp = await fetch('/api/status')
+        const s = await resp.json()
+        document.getElementById('mcp-status').textContent = s.mcp ? 'Connected' : 'Offline'
+        document.getElementById('mcp-status').className = s.mcp ? 'status status-ok' : 'status status-bad'
+        if (!s.mcp) document.getElementById('mcp-msg').innerHTML = '<div class="msg msg-err">' + (s.mcpError || 'MCP unreachable') + '</div>'
+      } catch(e) {
+        document.getElementById('mcp-status').textContent = 'Error'
+        document.getElementById('mcp-status').className = 'status status-bad'
+      }
+    }
+
+    async function saveImap(e) {
+      e.preventDefault()
+      const form = document.getElementById('imap-form')
+      const body = { host: form.host.value, email: form.email.value, password: form.password.value }
+      if (form.port.value) body.port = parseInt(form.port.value)
+      const el = document.getElementById('imap-msg')
+      el.innerHTML = '<div class="msg status-warn">Testing…</div>'
+      try {
+        const resp = await fetch('/api/email/imap', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+        const d = await resp.json()
+        if (d.connected) el.innerHTML = '<div class="msg msg-ok">IMAP connected and saved.</div>'
+        else el.innerHTML = '<div class="msg msg-err">Saved but connect failed: ' + (d.error || 'unknown') + '</div>'
+      } catch(e) {
+        el.innerHTML = '<div class="msg msg-err">Error: ' + e.message + '</div>'
+      }
+    }
+
+    async function testImap() {
+      const form = document.getElementById('imap-form')
+      const el = document.getElementById('imap-msg')
+      el.innerHTML = '<div class="msg status-warn">Testing…</div>'
+      try {
+        const resp = await fetch('/api/email/imap', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({host:form.host.value,email:form.email.value,password:form.password.value}) })
+        const d = await resp.json()
+        if (d.connected) el.innerHTML = '<div class="msg msg-ok">IMAP works!</div>'
+        else el.innerHTML = '<div class="msg msg-err">Connect failed: ' + (d.error || 'unknown') + '</div>'
+      } catch(e) {
+        el.innerHTML = '<div class="msg msg-err">Error: ' + e.message + '</div>'
+      }
+    }
+
+    async function testEmail() {
+      const el = document.getElementById('email-msg')
+      el.innerHTML = '<div class="msg status-warn">Sending…</div>'
+      try {
+        const resp = await fetch('/api/email/test', { method:'POST' })
+        const d = await resp.json()
+        el.innerHTML = '<div class="msg msg-ok">Test sent. Check your inbox.</div>'
+      } catch(e) {
+        el.innerHTML = '<div class="msg msg-err">Error: ' + e.message + '</div>'
+      }
+    }
+
+    checkMcp()
+  </script>
+</body>
+</html>
