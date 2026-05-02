@@ -6,6 +6,6 @@ tags: [founder, ceo, cofounder, cto, dev, product]
 weight: 8
 ---
 
-- [founder,ceo,cofounder] Founded one of the industry's first internet software companies before the advent of the graphical web
-- [dev,cto] Launched DataWave, a pioneering SMTP/POP3 email client and server
+- [founder,ceo,cofounder] Founded DataWave in 1992 — one of the first 100% internet software companies, before the graphical web
+- [dev,cto,product] Built CommSurfer, a pioneering SMTP/POP3 email client and server for Windows for Workgroups
 - [founder,ceo,cofounder] Identified commercial potential of internet protocols years before the dot-com boom
