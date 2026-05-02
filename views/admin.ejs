@@ -115,6 +115,9 @@
             <td>
               <a href="<%= BASE_URL %>/<%= row.slug %>" target="_blank" onclick="event.stopPropagation()">view</a>
               &nbsp;<a href="<%= BASE_URL %>/download/<%= row.slug %>" onclick="event.stopPropagation()">docx</a>
+              <% if (row.linkedin_url) { %>
+                &nbsp;<a href="#" onclick="event.stopPropagation();deepVerify('<%= row.slug %>')" style="color:#d97706">verify</a>
+              <% } %>
             </td>
           </tr>
           <% if (row.body_preview) { %>
@@ -222,6 +225,15 @@
       const resp = await fetch('/api/' + action, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
       const data = await resp.json()
       location.reload()
+    }
+
+    async function deepVerify(slug) {
+      const resp = await fetch('/api/deep-verify/' + slug)
+      const data = await resp.json()
+      if (data.linkedinUrl) {
+        window.open(data.linkedinUrl, 'li_'+slug, 'width=800,height=600')
+      }
+      alert('Deep verify started for ' + slug + '.\nLinkedIn profile opened in new window.\n\nAfter reviewing the profile, the assistant will run Chrome MCP verification.')
     }
 
     // Hide sent/skipped rows when clicking Pending pill by default? no — use pills.

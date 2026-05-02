@@ -1,18 +1,21 @@
 import express from 'express'
 import { nanoid } from 'nanoid'
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
+import { writeFileSync, readFileSync, readdirSync, existsSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx'
+import matter from 'gray-matter'
 import { loadExperiences, filterForProfile } from './lib/experiences.mjs'
 import { matchProfile, getProfile, getSkills, getContact, listProfiles } from './lib/profiles.mjs'
-import { verifyRecruiter } from './lib/verify.mjs'
-import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, emailAlreadyProcessed } from './lib/tracking.mjs'
+import { verifyRecruiter, scoreLinkedInProfile } from './lib/verify.mjs'
+import { createSlug, logVisit, getSlug, getAllStats, getPending, updateStatus, deleteSlug, updateTrust, emailAlreadyProcessed } from './lib/tracking.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FOLLOWUPS_DIR = join(__dirname, 'followups')
+const INBOX_DIR = join(__dirname, 'inbox')
 
 mkdirSync(FOLLOWUPS_DIR, { recursive: true })
+mkdirSync(INBOX_DIR, { recursive: true })
 
 function writeFollowup(slug, { email, profile, subject, sentTo, replyPreview }) {
   const file = join(FOLLOWUPS_DIR, `${slug}.md`)
@@ -91,14 +94,14 @@ ${RESUME_EMAIL} | ${RESUME_PHONE}
 ${verification.tier === 'suspicious' ? '\nPS — Could you share your LinkedIn profile? Helps me keep track of conversations.' : ''}`
 }
 
-async function processEmail({ from, subject, body, auth }) {
+async function processEmail({ from, subject, body, auth, replyTo }) {
   const emailMatch = from?.match(/<(.+?)>/) || [null, from]
   const email = (emailMatch[1] || from || '').trim()
   const domain = email.split('@')[1]?.toLowerCase() || ''
   const fromName = from?.replace(/<.*>/, '').replace(/"/g, '').trim() || email
 
   const profileKey = matchProfile(subject || '', body || '')
-  const verification = await verifyRecruiter({ from: from || '', domain, subject: subject || '', body: body || '', auth })
+  const verification = await verifyRecruiter({ from: from || '', domain, subject: subject || '', body: body || '', auth, replyTo })
   const slug = nanoid(8)
 
   return { email, domain, fromName, profileKey, verification, slug }
@@ -137,10 +140,11 @@ app.post('/api/incoming', async (req, res) => {
   const subject = req.body.subject
   const emailBody = req.body.body || req.body.preview || ''
   const auth = req.body.auth || null
+  const replyTo = req.body.replyTo || req.body['reply-to'] || null
   if (!from || !subject) return res.status(400).json({ error: 'Missing fields' })
 
   try {
-    const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body: emailBody, auth })
+    const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body: emailBody, auth, replyTo })
 
   createSlug({
     slug, email, profile: profileKey, subject, fromName,
@@ -229,6 +233,39 @@ app.post('/api/delete', (req, res) => {
   const slugs = req.body.slugs || []
   slugs.forEach(s => deleteSlug(s))
   res.json({ ok: true, deleted: slugs.length })
+})
+
+// Deep verify — returns slug info for Chrome MCP scraping
+app.get('/api/deep-verify/:slug', (req, res) => {
+  const data = getSlug(req.params.slug)
+  if (!data) return res.status(404).json({ error: 'not found' })
+  res.json({
+    slug: data.slug,
+    email: data.email,
+    profile: data.profile,
+    linkedinUrl: data.linkedin_url,
+    fromName: data.from_name,
+    trustTier: data.trust_tier,
+    flags: data.flags
+  })
+})
+
+// Accept LinkedIn profile data from Chrome MCP scrape
+app.post('/api/verify-result', (req, res) => {
+  const { slug, linkedinData } = req.body
+  if (!slug || !linkedinData) return res.status(400).json({ error: 'slug and linkedinData required' })
+
+  const data = getSlug(slug)
+  if (!data) return res.status(404).json({ error: 'not found' })
+
+  const result = scoreLinkedInProfile(linkedinData)
+  const existingFlags = data.flags ? JSON.parse(data.flags) : []
+  const newFlags = [...new Set([...existingFlags, ...result.flags])]
+
+  updateTrust(slug, result.trustDelta, result.tier, JSON.stringify(newFlags))
+  console.log(`Deep verify ${slug}: completeness=${result.completeness}% tier=${result.tier}`)
+
+  res.json({ ok: true, slug, completeness: result.completeness, tier: result.tier, flags: result.flags, trustDelta: result.trustDelta })
 })
 
 // Followup history
