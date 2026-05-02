@@ -140,7 +140,7 @@ app.post('/api/session/new', async (req, res) => {
   const days = parseInt(req.body.days) || 0
   const session = createSession(days)
 
-  const results = { session, inboxFiles: 0, imapEmails: 0, total: 0 }
+  const results = { session, inboxFiles: 0, imapEmails: 0, total: 0, skippedFiles: 0 }
 
   // Scan inbox .md files
   if (existsSync(INBOX_DIR)) {
@@ -148,12 +148,15 @@ app.post('/api/session/new', async (req, res) => {
     for (const f of files) {
       const raw = readFileSync(join(INBOX_DIR, f), 'utf-8')
       const { data, content } = matter(raw)
-      const from = data.from || f
-      const subject = data.subject || 'Imported'
+      const from = data.from
+      const subject = data.subject
       const body = content || ''
       const auth = data.auth || null
       const replyTo = data.replyTo || null
-      if (!from) continue
+      if (!from || !subject) {
+        results.skippedFiles = (results.skippedFiles || 0) + 1
+        continue
+      }
       try {
         const { email, fromName, profileKey, verification, slug } = await processEmail({ from, subject, body, auth, replyTo })
         if (!emailAlreadyProcessed(email)) {
