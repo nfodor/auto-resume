@@ -145,10 +145,14 @@ app.get('/api/status', async (req, res) => {
     try {
       const data = await callMcp('email_check_email_config', {}, 5000)
       status.mcp = !!data
-      status.imap = !!(data?.result?.imap_configured || data?.imap_configured || data?.imap)
+      // Check local IMAP config OR MCP's built-in config
+      const localCfg = loadImapConfig()
+      status.imap = !!(localCfg || data?.result?.imap_configured || data?.imap_configured || data?.imap)
       if (!status.mcp) status.mcpError = data?.error || 'unknown'
     } catch (e) {
       status.mcpError = e.message
+      // Even if MCP check fails, we might have local IMAP config
+      if (loadImapConfig()) status.imap = true
     }
   }
   res.json(status)
